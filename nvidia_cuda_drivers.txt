@@ -1,0 +1,99 @@
+install_cuda_drivers_on_ubuntu
+================================
+
+[1] install proper gcc and g++ versions
+----------------------------------------
+
+For gcc 4.8 do:
+
+sudo apt-get install gcc-4.8
+sudo update-alternatives --remove-all gcc
+sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.8 10
+For g++ 4.8 do:
+
+sudo apt-get install g++-4.8
+sudo update-alternatives --remove-all g++
+sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-4.8 10
+
+[2] install nvidia drivers
+--------------------------
+
+#check gpu
+lshw -numeric -C display
+	or
+lspci -vnn | grep VGA
+
+# open source drivers
+sudo add-apt-repository ppa:graphics-drivers/ppa
+#VERSION: 361
+sudo apt-get install nvidia-361
+
+	OR  
+
+# nvidia drivers
+http://www.nvidia.com/content/DriverDownload-Maarch2009/confirmation.php?url=/XFree86/Linux-x86_64/367.35/NVIDIA-Linux-x86_64-367.35.run&lang=us&type=GeForce
+
+
+[3] install cuda drivers
+-------------------------
+
+download install script from 
+https://developer.nvidia.com/cuda-downloads
+                or
+http://developer.download.nvidia.com/compute/cuda/7.5/Prod/local_installers/cuda_7.5.18_linux.run
+
+1> install the cuda driver
+	
+	sudo ./cuda_7.5.18_linux.run
+
+	Make sure to say yes to everything EXCEPT the prompt that reads:
+
+	Install NVIDIA Accelerated Graphics Driver for Linux-x86_64 352.39? 
+	((y)es/(n)o/(q)uit): n
+
+2> install theano
+	pip install theano
+
+3> Add CUDA PATHS to .bashrc:
+	#CUDA
+	export PATH="/usr/local/cuda-7.5/bin:$PATH"  
+	export LD_LIBRARY_PATH="/usr/local/cuda-7.5/lib64:$LD_LIBRARY_PATH"  
+	export GLPATH=/usr/lib
+
+4> Run the theano test:
+	THEANO_FLAGS="mode=FAST_RUN,device=gpu,floatX=float32,nvcc.flags=-D_FORCE_INLINES" python  test.py
+
+
+[4] test.py
+-----------
+
+from theano import function, config, shared, sandbox
+import theano.tensor as T
+import numpy
+import time
+
+vlen = 10 * 30 * 768  # 10 x #cores x # threads per core
+iters = 1000
+
+rng = numpy.random.RandomState(22)
+x = shared(numpy.asarray(rng.rand(vlen), config.floatX))
+f = function([], T.exp(x))
+print(f.maker.fgraph.toposort())
+t0 = time.time()
+for i in xrange(iters):
+    r = f()
+t1 = time.time()
+print("Looping %d times took %f seconds" % (iters, t1 - t0))
+print("Result is %s" % (r,))
+if numpy.any([isinstance(x.op, T.Elemwise) for x in f.maker.fgraph.toposort()]):
+    print('Used the cpu')
+else:
+    print('Used the gpu')
+
+
+[5] important links
+-------------------
+
+http://blog.manugarri.com/install-cuda-on-ubuntu-16-04/
+https://linuxconfig.org/how-to-install-the-latest-nvidia-drivers-on-ubuntu-16-04-xenial-xerus
+https://github.com/Theano/Theano/issues/4384
